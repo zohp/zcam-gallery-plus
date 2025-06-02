@@ -1,0 +1,255 @@
+#root {
+  /*
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+  */
+  /* Ensure #root takes full width and height if needed by the app inside it */
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left; /* Or remove if app handles its own alignment */
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+:root {
+  --sidebar-bg: #f5f5f7;
+  --sidebar-text: #222;
+  --sidebar-active: #e0e0e6;
+  --main-bg: #fff;
+  --main-text: #222;
+  --toolbar-bg: #f9f9fa;
+  --toolbar-border: #e0e0e6;
+  --accent: #007aff;
+  --error: #d7263d;
+}
+[data-theme='dark'] {
+  --sidebar-bg: #23232b;
+  --sidebar-text: #f5f5f7;
+  --sidebar-active: #353545;
+  --main-bg: #18181c;
+  --main-text: #f5f5f7;
+  --toolbar-bg: #23232b;
+  --toolbar-border: #353545;
+  --accent: #4e8cff;
+  --error: #ff5c5c;
+}
+
+body, .macos-app {
+  background: var(--main-bg);
+  color: var(--main-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+}
+.macos-app {
+  display: flex;
+  height: 100vh;
+}
+.sidebar {
+  width: 200px;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--toolbar-border);
+}
+.sidebar-title {
+  font-weight: 600;
+  font-size: 1.2em;
+  padding: 1.5em 1em 1em 1em;
+  letter-spacing: 0.02em;
+}
+.sidebar nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.sidebar-item {
+  background: none;
+  border: none;
+  color: var(--sidebar-text);
+  text-align: left;
+  padding: 0.8em 1.5em;
+  font-size: 1em;
+  cursor: pointer;
+  border-radius: 0 1em 1em 0;
+  margin: 0.1em 0;
+  transition: background 0.2s;
+}
+.sidebar-item.active, .sidebar-item:hover {
+  background: var(--sidebar-active);
+  color: var(--accent);
+}
+.sidebar-footer {
+  padding: 1em;
+  border-top: 1px solid var(--toolbar-border);
+  display: flex;
+  justify-content: flex-end;
+}
+.theme-toggle {
+  background: none;
+  border: none;
+  font-size: 1.3em;
+  cursor: pointer;
+  color: var(--sidebar-text);
+}
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--main-bg);
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--toolbar-border);
+  padding: 0.7em 1.5em;
+  gap: 1em;
+}
+.toolbar-title {
+  font-weight: 500;
+  font-size: 1.1em;
+  margin-left: auto;
+  color: var(--accent);
+}
+.connect-btn, .disconnect-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 0.5em;
+  padding: 0.5em 1.2em;
+  font-size: 1em;
+  cursor: pointer;
+  margin-right: 0.5em;
+  transition: background 0.2s;
+}
+.disconnect-btn {
+  background: #888;
+}
+.connect-btn:disabled {
+  background: #bbb;
+  cursor: not-allowed;
+}
+.content-area {
+  flex: 1;
+  padding: 2em 2em 1em 2em;
+  overflow-y: auto;
+}
+.placeholder {
+  color: #888;
+  font-size: 1.1em;
+  margin-top: 2em;
+  text-align: center;
+}
+.camera-info pre {
+  background: #2222;
+  color: inherit;
+  padding: 1em;
+  border-radius: 0.5em;
+  font-size: 0.95em;
+  overflow-x: auto;
+}
+.error-msg {
+  color: var(--error);
+  margin-bottom: 1em;
+  font-weight: 500;
+}
+
+.gallery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5em 1em;
+  /* Match background of where it's placed if needed, or keep transparent */
+}
+
+.gallery-header h2 {
+  margin: 0;
+  font-size: 1.2em; /* Adjust as needed */
+}
+
+.gallery-sort-controls {
+  display: flex;
+  gap: 0.5em;
+}
+
+.gallery-sort-controls button {
+  background-color: var(--button-bg-color, #444);
+  color: var(--button-text-color, #fff);
+  border: 1px solid var(--button-border-color, #555);
+  padding: 0.25em 0.5em;
+  font-size: 0.75em; /* Smaller font size to match filename text visual weight */
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  white-space: nowrap; /* Prevent text wrapping */
+}
+
+.gallery-sort-controls button:hover {
+  background-color: var(--button-hover-bg-color, #555);
+}
+
+.gallery-sort-controls button.active {
+  background-color: var(--accent-color, #007bff);
+  color: var(--button-active-text-color, #fff);
+  border-color: var(--accent-color, #007bff);
+}
+
+.gallery-sort-controls .sort-indicator {
+  font-size: 0.9em; /* Make indicator slightly smaller or adjust as needed */
+  margin-left: 0.25em;
+}
+
+/* Ensure .gallery-view encapsulates header and grid if header needs to scroll with grid or stay fixed */
+.gallery-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* If gallery-view is meant to fill a space */
+  overflow: hidden; /* Prevent gallery-header from causing overall scroll if gallery-grid handles its own scroll */
+}
+
+.gallery-grid {
+  /* ... existing gallery-grid styles ... */
+  flex-grow: 1;
+  overflow-y: auto; /* Make sure only the grid scrolls if content overflows */
+  padding: 1em; /* Add padding back to the grid if header took it */
+}
