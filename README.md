@@ -1,8 +1,8 @@
 ## AI Assistant Instructions
--
+- Implement changes right away, i'll ask you clarification if needed.
 - The AI assistant should make all code changes directly, asking for confirmation only for critically long and complex writes.
 - When implementing features, go with your best recommendations, ask me only in case of critical choices.
-- Assume user consent for all safe, reversible, and project-relevant edits.w
+- Assume user consent for all safe, reversible, and project-relevant edits.
 
 
 ## Changelog
