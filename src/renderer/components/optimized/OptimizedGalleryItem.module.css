@@ -1,0 +1,342 @@
+/* Optimized Gallery Item - High Performance Styling */
+
+.galleryItem {
+  display: flex;
+  flex-direction: column;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  contain: layout style paint;
+  will-change: transform;
+}
+
+.galleryItem:hover {
+  border-color: var(--accent-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.galleryItem:focus {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.galleryItem.folder {
+  background: linear-gradient(135deg, var(--background-secondary) 0%, var(--background-tertiary) 100%);
+}
+
+.galleryItem.file {
+  background: var(--background-secondary);
+}
+
+/* Placeholder for virtual scrolling */
+.placeholder {
+  height: 200px;
+  background: transparent;
+}
+
+/* Thumbnail container */
+.thumbnailContainer {
+  position: relative;
+  width: 100%;
+  height: 120px;
+  background: var(--background-tertiary);
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.3s ease;
+}
+
+.thumbnail:hover {
+  opacity: 0.9;
+}
+
+.fallbackIcon {
+  font-size: 32px;
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
+.fallbackIcon.hidden {
+  display: none;
+}
+
+/* Progress overlay */
+.progressOverlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.progressBar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--accent-color);
+  transition: width 0.3s ease;
+  border-radius: 2px;
+}
+
+.progressText {
+  font-size: 10px;
+  font-weight: 500;
+}
+
+/* Download button */
+.downloadButton {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  padding: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  font-size: 16px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.galleryItem:hover .downloadButton {
+  opacity: 1;
+}
+
+.downloadButton:hover {
+  background: rgba(0, 0, 0, 0.9);
+  transform: scale(1.1);
+}
+
+/* File info */
+.fileInfo {
+  flex: 1;
+  min-height: 0;
+}
+
+.fileName {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.fileDetails {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  gap: 8px;
+}
+
+.fileSize {
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.fileDate {
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* Status indicators */
+.statusIndicators {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 4px;
+}
+
+.completedIndicator,
+.errorIndicator {
+  font-size: 14px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.completedIndicator {
+  color: #10b981;
+}
+
+.errorIndicator {
+  color: #ef4444;
+}
+
+/* Performance optimizations */
+.galleryItem {
+  contain: layout style paint;
+  will-change: transform;
+}
+
+.thumbnailContainer {
+  contain: layout style paint;
+}
+
+.thumbnail {
+  contain: layout style paint;
+}
+
+/* Dark theme optimizations */
+@media (prefers-color-scheme: dark) {
+  .galleryItem:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  
+  .progressOverlay {
+    background: rgba(0, 0, 0, 0.9);
+  }
+  
+  .downloadButton {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+  }
+  
+  .downloadButton:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .galleryItem {
+    border-width: 2px;
+  }
+  
+  .galleryItem:focus {
+    outline-width: 3px;
+  }
+  
+  .downloadButton {
+    border: 2px solid white;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .galleryItem,
+  .thumbnail,
+  .progressFill,
+  .downloadButton {
+    transition: none;
+  }
+  
+  .galleryItem:hover {
+    transform: none;
+  }
+  
+  .downloadButton:hover {
+    transform: none;
+  }
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+  .galleryItem {
+    padding: 8px;
+  }
+  
+  .thumbnailContainer {
+    height: 100px;
+  }
+  
+  .fileName {
+    font-size: 13px;
+  }
+  
+  .fileDetails {
+    font-size: 11px;
+  }
+}
+
+/* Loading state */
+.galleryItem.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.galleryItem.loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Accessibility improvements */
+.galleryItem:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.galleryItem[aria-pressed="true"] {
+  background: var(--accent-color-light);
+  border-color: var(--accent-color);
+}
+
+/* Print styles */
+@media print {
+  .galleryItem {
+    break-inside: avoid;
+    border: 1px solid #000;
+    box-shadow: none;
+  }
+  
+  .downloadButton,
+  .progressOverlay,
+  .statusIndicators {
+    display: none;
+  }
+}

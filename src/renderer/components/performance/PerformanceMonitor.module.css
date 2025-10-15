@@ -1,0 +1,237 @@
+/* Performance Monitor Styles */
+
+.dashboardButton {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.monitorButton {
+  background: var(--background-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.monitorButton:hover {
+  background: var(--background-secondary);
+  border-color: var(--accent-color);
+  transform: scale(1.1);
+}
+
+.issueBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--background-primary);
+}
+
+/* Mini Dashboard */
+.miniDashboard {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  width: 200px;
+  background: var(--background-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+}
+
+.miniHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--background-secondary);
+  border-radius: 8px 8px 0 0;
+}
+
+.miniTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.miniToggle {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.miniToggle:hover {
+  background: var(--background-tertiary);
+  color: var(--text-primary);
+}
+
+.miniMetrics {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.miniMetric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--background-secondary);
+  transition: all 0.2s ease;
+}
+
+.miniMetric.good {
+  background: rgba(16, 185, 129, 0.1);
+  border-left: 3px solid #10b981;
+}
+
+.miniMetric.warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-left: 3px solid #f59e0b;
+}
+
+.miniLabel {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.miniValue {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+.miniIssues {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-color);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.miniIssuesTitle {
+  font-size: 11px;
+  color: #ef4444;
+  font-weight: 500;
+}
+
+/* Animation for performance indicators */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.monitorButton.alert {
+  animation: pulse 2s infinite;
+  border-color: #ef4444;
+}
+
+/* Dark theme optimizations */
+@media (prefers-color-scheme: dark) {
+  .monitorButton {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  .miniDashboard {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .monitorButton {
+    border-width: 2px;
+  }
+  
+  .miniDashboard {
+    border-width: 2px;
+  }
+  
+  .issueBadge {
+    border-width: 3px;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .monitorButton,
+  .miniToggle,
+  .miniMetric {
+    transition: none;
+  }
+  
+  .monitorButton:hover {
+    transform: none;
+  }
+  
+  .monitorButton.alert {
+    animation: none;
+  }
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .dashboardButton {
+    bottom: 15px;
+    right: 15px;
+  }
+  
+  .monitorButton {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+  
+  .miniDashboard {
+    width: 180px;
+    bottom: 70px;
+    right: 15px;
+  }
+  
+  .issueBadge {
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
+  }
+}
+
+/* Print styles */
+@media print {
+  .dashboardButton,
+  .miniDashboard {
+    display: none;
+  }
+}
