@@ -149,3 +149,81 @@ export interface IThumbnailCache {
   clearCache(): Promise<void>
   getCacheSize(): Promise<number>
 }
+
+// Migration types
+export interface MigrationInfo {
+  hasOldData: boolean
+  canMigrate: boolean
+  estimatedItems: number
+}
+
+export interface MigrationResult {
+  success: boolean
+  migratedItems: number
+  errors: string[]
+  warnings: string[]
+  backupPath?: string
+}
+
+export interface MigrationStatus {
+  needed: boolean
+  completed: boolean
+  oldDataPath?: string
+  backupPath?: string
+  migratedAt?: string
+}
+
+export interface ElectronAPI {
+  file: {
+    download: (url: string, destination: string, onProgress?: (progress: number) => void) => Promise<void>
+    readAsDataURL: (path: string) => Promise<string>
+    getMetadata: (path: string) => Promise<any>
+    delete: (path: string) => Promise<void>
+    ensureDirExists: (path: string) => Promise<void>
+    pathExists: (path: string) => Promise<boolean>
+  }
+  dialog: {
+    showOpenDialog: (options?: any) => Promise<string | null>
+    showSaveDialog: (options?: any) => Promise<string | null>
+    showErrorBox: (title: string, content: string) => Promise<void>
+  }
+  camera: {
+    listFiles: (ip: string, path: string) => Promise<CameraFile[]>
+    downloadFile: (url: string, onProgress?: (progress: number) => void) => Promise<ArrayBuffer>
+    getDeviceInfo: (ip: string) => Promise<CameraInfo>
+  }
+  watcher: {
+    onFolderChanged: (callback: (event: any) => void) => void
+    offFolderChanged: (callback: (event: any) => void) => void
+  }
+  app: {
+    getDataPath: () => string
+    getVersion: () => string
+    getPlatform: () => string
+    quit: () => void
+    minimize: () => void
+    maximize: () => void
+    close: () => void
+  }
+  ipc: {
+    on: (channel: string, callback: (...args: any[]) => void) => void
+    off: (channel: string, callback: (...args: any[]) => void) => void
+    removeAllListeners: (channel: string) => void
+  }
+  store: {
+    get: (key: string) => any
+    set: (key: string, value: any) => void
+    delete: (key: string) => void
+    onDidChange: (callback: (key: string, value: any) => void) => () => void
+  }
+  migration: {
+    isNeeded: () => Promise<{ success: boolean; needed?: boolean; error?: string }>
+    getInfo: () => Promise<{ success: boolean; info?: MigrationInfo; error?: string }>
+    perform: () => Promise<{ success: boolean; result?: MigrationResult; error?: string }>
+    validate: () => Promise<{ success: boolean; validation?: any; error?: string }>
+    getStatus: () => Promise<{ success: boolean; status?: MigrationStatus; error?: string }>
+    rollback: (backupPath: string) => Promise<{ success: boolean; error?: string }>
+    cleanup: () => Promise<{ success: boolean; error?: string }>
+    isFirstRunAfterMigration: () => Promise<{ success: boolean; isFirstRun?: boolean; error?: string }>
+  }
+}

@@ -2,6 +2,7 @@ import { FileHandlers } from './handlers/fileHandlers'
 import { DialogHandlers } from './handlers/dialogHandlers'
 import { CameraHandlers } from './handlers/cameraHandlers'
 import { WatcherHandlers } from './handlers/watcherHandlers'
+import { registerMigrationHandlers, cleanupMigrationHandlers } from './handlers/migrationHandlers'
 
 /**
  * IPC Coordinator - Registers all IPC handlers
@@ -30,6 +31,7 @@ export class IPCCoordinator {
     this.dialogHandlers.registerHandlers()
     this.cameraHandlers.registerHandlers()
     this.watcherHandlers.registerHandlers()
+    registerMigrationHandlers()
     
     console.log('All IPC handlers registered successfully')
   }
@@ -42,6 +44,7 @@ export class IPCCoordinator {
     
     try {
       await this.watcherHandlers.cleanup()
+      cleanupMigrationHandlers()
       console.log('IPC cleanup completed successfully')
     } catch (error) {
       console.error('IPC cleanup failed:', error)

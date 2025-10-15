@@ -185,6 +185,41 @@ const storeAPI = {
   },
 }
 
+// Migration API
+const migrationAPI = {
+  isNeeded: async (): Promise<{ success: boolean; needed?: boolean; error?: string }> => {
+    return ipcRenderer.invoke('migration:isNeeded')
+  },
+
+  getInfo: async (): Promise<{ success: boolean; info?: any; error?: string }> => {
+    return ipcRenderer.invoke('migration:getInfo')
+  },
+
+  perform: async (): Promise<{ success: boolean; result?: any; error?: string }> => {
+    return ipcRenderer.invoke('migration:perform')
+  },
+
+  validate: async (): Promise<{ success: boolean; validation?: any; error?: string }> => {
+    return ipcRenderer.invoke('migration:validate')
+  },
+
+  getStatus: async (): Promise<{ success: boolean; status?: any; error?: string }> => {
+    return ipcRenderer.invoke('migration:getStatus')
+  },
+
+  rollback: async (backupPath: string): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('migration:rollback', backupPath)
+  },
+
+  cleanup: async (): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('migration:cleanup')
+  },
+
+  isFirstRunAfterMigration: async (): Promise<{ success: boolean; isFirstRun?: boolean; error?: string }> => {
+    return ipcRenderer.invoke('migration:isFirstRunAfterMigration')
+  },
+}
+
 // Expose APIs to renderer process
 const electronAPI: ElectronAPI = {
   file: fileAPI,
@@ -194,6 +229,7 @@ const electronAPI: ElectronAPI = {
   app: appAPI,
   ipc: ipcAPI,
   store: storeAPI,
+  migration: migrationAPI,
 }
 
 // Context bridge - secure exposure to renderer
