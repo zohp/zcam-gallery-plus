@@ -1,0 +1,268 @@
+/* TransferProgress Styles */
+
+.transferProgress {
+  position: fixed;
+  bottom: var(--spacing-md);
+  right: var(--spacing-md);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  min-width: 300px;
+  max-width: 500px;
+  overflow: hidden;
+}
+
+.progressButton {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  width: 100%;
+  border: none;
+  background: var(--color-background-secondary);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.progressButton:hover {
+  background: var(--color-background-tertiary);
+}
+
+.progressButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.progressButton.expanded {
+  background: var(--color-background-tertiary);
+}
+
+.icon {
+  font-size: 1rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.summary {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.expandIcon {
+  font-size: 0.75rem;
+  transition: transform var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.progressButton.expanded .expandIcon {
+  transform: rotate(180deg);
+}
+
+.progressDetails {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: var(--spacing-sm);
+}
+
+.transferItem {
+  margin-bottom: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--color-background);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+}
+
+.transferItem:last-child {
+  margin-bottom: 0;
+}
+
+.transferInfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xs);
+  font-size: 0.8rem;
+}
+
+.fileName {
+  font-weight: 500;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  margin-right: var(--spacing-sm);
+}
+
+.transferStatus {
+  font-size: 0.7rem;
+  padding: 2px var(--spacing-xs);
+  background: var(--color-info);
+  color: white;
+  border-radius: var(--radius-sm);
+  text-transform: capitalize;
+  flex-shrink: 0;
+}
+
+.progressBar {
+  height: 4px;
+  background: var(--color-background-tertiary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: var(--spacing-xs);
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--color-primary);
+  transition: width var(--transition-normal);
+  border-radius: var(--radius-sm);
+}
+
+.transferStats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+}
+
+.queuedSection {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.queuedHeader {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-text);
+  margin-bottom: var(--spacing-xs);
+}
+
+.queuedItem {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-background-tertiary);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--spacing-xs);
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queuedItem:last-child {
+  margin-bottom: 0;
+}
+
+.moreFiles {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  text-align: center;
+  padding: var(--spacing-xs);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .transferProgress {
+    bottom: var(--spacing-sm);
+    right: var(--spacing-sm);
+    left: var(--spacing-sm);
+    min-width: auto;
+    max-width: none;
+  }
+  
+  .progressButton {
+    padding: var(--spacing-sm);
+    font-size: 0.8rem;
+  }
+  
+  .progressDetails {
+    max-height: 300px;
+  }
+}
+
+@media (max-width: 480px) {
+  .transferProgress {
+    bottom: var(--spacing-xs);
+    right: var(--spacing-xs);
+    left: var(--spacing-xs);
+  }
+  
+  .progressButton {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 0.75rem;
+  }
+  
+  .progressDetails {
+    max-height: 250px;
+    padding: var(--spacing-xs);
+  }
+  
+  .transferItem {
+    padding: var(--spacing-xs);
+    margin-bottom: var(--spacing-xs);
+  }
+  
+  .transferStats {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+}
+
+/* Animation */
+.transferProgress {
+  animation: slideUp var(--transition-normal) ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .transferProgress {
+    border-width: 2px;
+  }
+  
+  .transferItem {
+    border-width: 2px;
+  }
+  
+  .progressBar {
+    border: 1px solid var(--color-border);
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .transferProgress {
+    animation: none;
+  }
+  
+  .progressFill {
+    transition: none;
+  }
+  
+  .expandIcon {
+    transition: none;
+  }
+}

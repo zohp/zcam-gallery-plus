@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/components/*": ["src/renderer/components/*"],
+      "@/features/*": ["src/renderer/features/*"],
+      "@/hooks/*": ["src/renderer/hooks/*"],
+      "@/services/*": ["src/renderer/services/*"],
+      "@/stores/*": ["src/renderer/stores/*"],
+      "@/types/*": ["src/types/*"],
+      "@/utils/*": ["src/renderer/utils/*"],
+      "@/shared/*": ["src/shared/*"]
+    },
+    "types": ["vite/client", "vitest/globals"]
+  },
+  "include": [
+    "src/renderer/**/*",
+    "src/types/**/*",
+    "src/shared/**/*",
+    "src/test/**/*",
+    "vite.config.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": [
+    "src/main/**/*",
+    "src/preload/**/*",
+    "node_modules",
+    "dist"
+  ]
+}

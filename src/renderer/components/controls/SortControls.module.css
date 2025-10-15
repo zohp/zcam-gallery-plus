@@ -1,0 +1,95 @@
+/* SortControls Styles */
+
+.sortControls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.875rem;
+}
+
+.label {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.sortButtons {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.sortButton {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.sortButton:hover {
+  background: var(--color-background-secondary);
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+.sortButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.sortButton.active {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.sortButton.active:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.order {
+  font-size: 0.875rem;
+  font-weight: bold;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .sortControls {
+    font-size: 0.8rem;
+    gap: var(--spacing-xs);
+  }
+  
+  .sortButton {
+    padding: var(--spacing-xs);
+    font-size: 0.7rem;
+  }
+  
+  .label {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .sortButtons {
+    gap: 2px;
+  }
+  
+  .sortButton {
+    padding: 2px var(--spacing-xs);
+    min-width: 32px;
+    justify-content: center;
+  }
+  
+  .order {
+    font-size: 0.75rem;
+  }
+}

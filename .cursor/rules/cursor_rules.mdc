@@ -38,6 +38,7 @@ alwaysApply: true
   - Show examples of correct implementation
   - Reference existing code when possible
   - Keep rules DRY by referencing other rules
+  - Immediately implement the code! We can always revert if needed, but stop asking a million times before applying simple changes.
 
 - **Rule Maintenance:**
   - Update rules when new patterns emerge

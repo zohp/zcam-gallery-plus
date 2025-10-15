@@ -1,0 +1,108 @@
+/* IngestPathSelector Styles */
+
+.ingestPathSelector {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-size: 0.75rem;
+  font-weight: 500;
+  max-width: 200px;
+  min-width: 120px;
+}
+
+.ingestPathSelector:hover {
+  background: var(--color-background-secondary);
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.ingestPathSelector:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.ingestPathSelector:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.icon {
+  font-size: 0.875rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .ingestPathSelector {
+    max-width: 150px;
+    min-width: 100px;
+    padding: var(--spacing-xs);
+    font-size: 0.7rem;
+  }
+  
+  .text {
+    font-size: 0.65rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .ingestPathSelector {
+    max-width: 120px;
+    min-width: 80px;
+  }
+  
+  .text {
+    display: none;
+  }
+}
+
+/* Animation */
+.ingestPathSelector {
+  animation: fadeIn var(--transition-fast) ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .ingestPathSelector {
+    border-width: 2px;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .ingestPathSelector {
+    transition: none;
+    animation: none;
+  }
+  
+  .ingestPathSelector:hover {
+    transform: none;
+  }
+}

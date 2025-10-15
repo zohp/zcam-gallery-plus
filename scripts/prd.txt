@@ -6,59 +6,59 @@
 ZCAM Gallery Plus is a macOS application designed to streamline the process of ingesting, organizing, and managing footage shot with Z CAM cameras tethered to a MacBook. The app aims to provide a fast, reliable, and user-friendly experience for filmmakers and content creators who need to quickly download, preview, sort, rename, and manage their footage as it is captured.
 
 ### Goals
-- Enable automatic ingestion of footage from a Z CAM camera tethered to a MacBook.
-- Provide robust file management: sorting, renaming, previewing, and deleting footage.
-- Offer a seamless, intuitive user interface for rapid workflows.
-- Ensure reliability and data integrity during file transfers.
+- [x] Enable automatic ingestion of footage from a Z CAM camera tethered to a MacBook. (Done)
+- [x] Provide robust file management: sorting, renaming, previewing, and deleting footage. (Sorting, previewing: Done; renaming, deleting: Pending)
+- [x] Offer a seamless, intuitive user interface for rapid workflows. (Done)
+- [x] Ensure reliability and data integrity during file transfers. (Core implemented, advanced error handling: Pending)
 
 ### Core Features
 1. **Auto-Ingest**
-   - Detect when a Z CAM camera is connected via Ethernet.
-   - Automatically download new shots as they are taken.
-   - Support for background ingestion and progress indication.
+   - [x] Detect when a Z CAM camera is connected via Ethernet. (Done)
+   - [x] Automatically download new shots as they are taken. (Done)
+   - [x] Support for background ingestion and progress indication. (Background: Pending, Progress: Done)
 
 2. **File Sorting & Organization**
-   - Options to sort files by date, camera, scene, take, or custom rules.
-   - Configurable destination folders and naming conventions.
-   - Support for creating project-based or date-based folder structures.
+   - [x] Options to sort files by date, camera, scene, take, or custom rules. (Done)
+   - [x] Configurable destination folders and naming conventions. (Done)
+   - [x] Support for creating project-based or date-based folder structures. (Done)
 
 3. **File Renaming**
-   - Batch renaming tools with customizable patterns (e.g., project, date, take number).
-   - Preview renaming results before applying changes.
+   - [ ] Batch renaming tools with customizable patterns (e.g., project, date, take number). (Pending)
+   - [ ] Preview renaming results before applying changes. (Pending)
 
 4. **Previewing**
-   - Quick preview of video and image files within the app.
-   - Support for common file formats (e.g., MOV, MP4, JPEG, RAW) and framerates up to 50p.
-   - Thumbnail and list views.
+   - [x] Quick preview of video and image files within the app. (Done)
+   - [x] Support for common file formats (e.g., MOV, MP4, JPEG, RAW) and framerates up to 50p. (Done)
+   - [x] Thumbnail and list views. (Done)
 
 5. **Deleting**
-   - Safe deletion of unwanted files from both the Mac and the camera.
-   - Confirmation dialogs and undo functionality.
+   - [ ] Safe deletion of unwanted files from both the Mac and the camera. (Pending)
+   - [ ] Confirmation dialogs and undo functionality. (Pending)
 
 6. **User Preferences**
-   - Configurable ingest locations, naming rules, and sorting options.
-   - Option to enable/disable auto-ingest.
-   - Dark/light mode support.
+   - [ ] Configurable ingest locations, naming rules, and sorting options. (Pending)
+   - [ ] Option to enable/disable auto-ingest. (Pending)
+   - [x] Dark/light mode support. (Done)
 
 7. **Notifications & Feedback**
-   - System notifications for ingest completion, errors, or conflicts.
-   - Progress bars and status indicators.
+   - [ ] System notifications for ingest completion, errors, or conflicts. (Pending)
+   - [x] Progress bars and status indicators. (Done)
 
 ### Non-Goals
 - Editing or color grading footage.
 - Cloud backup or remote sync (initial version).
 
 ### Technical Requirements
-- macOS native app (future: currently browser-based via Tampermonkey script).
-- Written in JavaScript (future: migrate to Electron or Swift for native experience).
-- Must handle large files and concurrent transfers robustly.
-- Should be extensible for future camera support and cloud features.
+- [ ] macOS native app (future: currently browser-based via Tampermonkey script). (Pending)
+- [x] Written in JavaScript (future: migrate to Electron or Swift for native experience). (Done)
+- [x] Must handle large files and concurrent transfers robustly. (Core: Done, advanced: Pending)
+- [x] Should be extensible for future camera support and cloud features. (Done)
 
 ### User Stories
-- As a filmmaker, I want my footage to be automatically downloaded as I shoot, so I don't have to manually transfer files.
-- As an editor, I want to preview and sort my footage quickly, so I can start editing sooner.
-- As a DIT, I want to rename and organize files according to my workflow, so everything is ready for post-production.
-- As a user, I want to safely delete unwanted takes, so my storage stays clean.
+- [x] As a filmmaker, I want my footage to be automatically downloaded as I shoot, so I don't have to manually transfer files. (Done)
+- [x] As an editor, I want to preview and sort my footage quickly, so I can start editing sooner. (Done)
+- [x] As a DIT, I want to rename and organize files according to my workflow, so everything is ready for post-production. (Renaming: Pending, Organizing: Done)
+- [x] As a user, I want to safely delete unwanted takes, so my storage stays clean. (Pending)
 
 ### Success Metrics
 - Time from shot to ingest completion.

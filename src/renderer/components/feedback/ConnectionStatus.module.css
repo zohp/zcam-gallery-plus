@@ -1,0 +1,117 @@
+/* ConnectionStatus Styles */
+
+.connectionStatus {
+  position: fixed;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  z-index: 1000;
+  font-size: 0.875rem;
+  font-weight: 500;
+  animation: slideIn var(--transition-normal) ease-out;
+  max-width: 300px;
+}
+
+.connectionStatus.success {
+  background: var(--color-success);
+  color: white;
+}
+
+.connectionStatus.info {
+  background: var(--color-info);
+  color: white;
+}
+
+.connectionStatus.error {
+  background: var(--color-danger);
+  color: white;
+}
+
+.icon {
+  font-size: 1rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.message {
+  line-height: 1.2;
+  word-wrap: break-word;
+}
+
+/* Animation */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Auto-hide success messages */
+.connectionStatus.success {
+  animation: slideIn var(--transition-normal) ease-out,
+             slideOut var(--transition-normal) ease-in 3s forwards;
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .connectionStatus {
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    left: var(--spacing-sm);
+    max-width: none;
+    font-size: 0.8rem;
+    padding: var(--spacing-sm);
+  }
+}
+
+@media (max-width: 480px) {
+  .connectionStatus {
+    top: var(--spacing-xs);
+    right: var(--spacing-xs);
+    left: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 0.75rem;
+  }
+  
+  .icon {
+    font-size: 0.875rem;
+  }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .connectionStatus {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .connectionStatus {
+    animation: none;
+  }
+  
+  .connectionStatus.success {
+    animation: none;
+  }
+}

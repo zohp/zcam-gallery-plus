@@ -1,9 +1,12 @@
-console.log('preload.cjs loaded successfully');
+console.log('ACTUAL preload.cjs loaded at', __filename, 'with marker: 123456789');
 const { contextBridge, ipcRenderer } = require('electron');
 const fs = require('fs-extra');
 const path = require('path');
 const http = require('http');
 const https = require('https');
+const THROTTLE_INTERVAL_MS = 100;
+
+console.log("THROTTLE_INTERVAL_MS is", typeof THROTTLE_INTERVAL_MS, THROTTLE_INTERVAL_MS);
 
 contextBridge.exposeInMainWorld('electronAPI', {
   /**
@@ -64,10 +67,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Expose fs.readdirSync to list files in a directory
   readDirSync: (dirPath) => {
     try {
-      if (fs.existsSync(dirPath)) {
+      if (fs.existsSync(dirPath) && fs.statSync(dirPath).isDirectory()) {
         return fs.readdirSync(dirPath);
       }
-      return []; // Return empty if path doesn't exist
+      return []; // Return empty if path doesn't exist or is not a directory
     } catch (error) {
       console.error('Error reading directory:', dirPath, error);
       return []; // Return empty on error

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo, useContext } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, useContext, createContext } from 'react';
 import ZCamConnector from './ZCamConnector';
 import AutoIngestService from './AutoIngestService';
 import { FixedSizeGrid as Grid } from 'react-window';
@@ -8,6 +8,67 @@ import { listCameraFiles } from './fileSystem';
 
 // Create a new context for stable grid cell data and handlers
 const GridCellContext = React.createContext(null);
+
+// --- Download Progress Context ---
+const DownloadProgressContext = createContext({
+  progress: {},
+  setProgress: () => {},
+  lastProgressRef: { current: {} },
+  pendingProgressUpdatesRef: { current: {} },
+  flushProgressUpdates: () => {},
+});
+
+function DownloadProgressProvider({ children }) {
+  const [progress, setProgress] = useState({});
+  const lastProgressRef = useRef({});
+  const pendingProgressUpdatesRef = useRef({});
+  const flushScheduledRef = useRef(false);
+  const lastFlushTimeRef = useRef(Date.now());
+
+  // Throttled flush
+  const THROTTLE_INTERVAL_MS = 100;
+  const flushProgressUpdates = useCallback(() => {
+    const now = Date.now();
+    const sinceLastFlush = now - lastFlushTimeRef.current;
+    if (sinceLastFlush < THROTTLE_INTERVAL_MS) {
+      if (!flushScheduledRef.current) {
+        flushScheduledRef.current = true;
+        setTimeout(flushProgressUpdates, THROTTLE_INTERVAL_MS - sinceLastFlush);
+      }
+      return;
+    }
+    lastFlushTimeRef.current = now;
+    if (Object.keys(pendingProgressUpdatesRef.current).length > 0) {
+      setProgress(prev => {
+        let newProgress = { ...prev };
+        let changed = false;
+        for (const itemName in pendingProgressUpdatesRef.current) {
+          if (newProgress[itemName] !== pendingProgressUpdatesRef.current[itemName]) {
+            newProgress[itemName] = pendingProgressUpdatesRef.current[itemName];
+            changed = true;
+          }
+        }
+        pendingProgressUpdatesRef.current = {};
+        return changed ? newProgress : prev;
+      });
+    }
+    flushScheduledRef.current = false;
+  }, []);
+
+  const contextValue = useMemo(() => ({
+    progress,
+    setProgress,
+    lastProgressRef,
+    pendingProgressUpdatesRef,
+    flushProgressUpdates,
+  }), [progress, setProgress]);
+
+  return (
+    <DownloadProgressContext.Provider value={contextValue}>
+      {children}
+    </DownloadProgressContext.Provider>
+  );
+}
 
 const connector = new ZCamConnector();
 const ZCAM_IP = '10.98.32.1';
@@ -31,14 +92,17 @@ const devLog = (...args) => {
 const MemoizedDownloadButton = React.memo(({ item, downloadProgressRef, onDownload, itemProgressToDisplay }) => {
   const currentProgressForButton = downloadProgressRef && downloadProgressRef.current ? downloadProgressRef.current : {};
   const progressFromRef = currentProgressForButton[item.name];
-  const isActuallyDownloading = progressFromRef !== undefined && progressFromRef >= 0 && progressFromRef < 100;
+  const isActuallyDownloading = progressFromRef !== undefined && progressFromRef > 0 && progressFromRef < 100;
   const isCompleteFromRef = progressFromRef === 100;
-  if (itemProgressToDisplay !== undefined && itemProgressToDisplay >= 0 && itemProgressToDisplay < 100) {
-    return null; 
-  }
-  if (item.isIngested || isCompleteFromRef) { 
+  // Show checkmark if ingested or complete
+  if (item.isIngested || isCompleteFromRef) {
     return <span className="download-checkmark" title="Downloaded" style={{ color: '#4caf50', fontSize: '1.1em', marginLeft: 4, verticalAlign: 'middle' }}>&#10003;</span>;
   }
+  // Hide button only if actively downloading (progress strictly between 0 and 100)
+  if (itemProgressToDisplay > 0 && itemProgressToDisplay < 100) {
+    return null;
+  }
+  // Otherwise, show download button
   return (
     <button 
       onClick={onDownload} 
@@ -222,6 +286,7 @@ function App() {
   const lastProgressRef = useRef({});
   const pendingProgressUpdatesRef = useRef({});
   const flushScheduledRef = useRef(false);
+  const lastFlushTimeRef = useRef(Date.now()); // For throttling
 
   // --- Gallery Path State ---
   const currentGalleryPathRef = useRef(currentGalleryPath);
@@ -242,9 +307,18 @@ function App() {
 
   const GALLERY_POLL_INTERVAL_MS = 10000;
 
-  // --- Flush Progress Updates Callback ---
+  // --- Throttled Flush Progress Updates Callback (500ms) ---
   const flushProgressUpdates = useCallback(() => {
-    devLog('[DEBUG] flushProgressUpdates called. Pending:', {...pendingProgressUpdatesRef.current});
+    const now = Date.now();
+    const sinceLastFlush = now - lastFlushTimeRef.current;
+    if (sinceLastFlush < THROTTLE_INTERVAL_MS) {
+      if (!flushScheduledRef.current) {
+        flushScheduledRef.current = true;
+        setTimeout(flushProgressUpdates, THROTTLE_INTERVAL_MS - sinceLastFlush);
+      }
+      return;
+    }
+    lastFlushTimeRef.current = now;
     if (Object.keys(pendingProgressUpdatesRef.current).length > 0) {
       setDownloadProgress(prevProgress => {
         let newProgress = { ...prevProgress };
@@ -255,13 +329,12 @@ function App() {
             changed = true;
           }
         }
-        devLog('[DEBUG] setDownloadProgress in flushProgressUpdates. Changed:', changed, 'New progress state:', newProgress, 'Prev:', prevProgress);
-        pendingProgressUpdatesRef.current = {}; // Clear pending
-        return changed ? newProgress : prevProgress; // Only update if actually changed
+        pendingProgressUpdatesRef.current = {};
+        return changed ? newProgress : prevProgress;
       });
     }
     flushScheduledRef.current = false;
-  }, [setDownloadProgress]); // setDownloadProgress is stable from useState
+  }, []);
 
   // Stable getProxyPath using ref
   function getProxyPath(fileName) {
@@ -340,13 +413,15 @@ function App() {
 
     window.electronAPI.downloadFile(url, dest, (received, total) => {
       const percent = total ? Math.round((received / total) * 100) : 0;
-      devLog('[DEBUG] Download progress callback:', item.name, percent);
-      if (lastProgressRef.current && lastProgressRef.current[item.name] !== percent) {
-        lastProgressRef.current[item.name] = percent;
+      const prevProgress = downloadProgressRef.current[item.name];
+      if (prevProgress !== undefined && prevProgress !== percent) {
+        downloadProgressRef.current[item.name] = percent;
         pendingProgressUpdatesRef.current[item.name] = percent;
-        if (!flushScheduledRef.current) {
-          flushScheduledRef.current = true;
-          requestAnimationFrame(flushProgressUpdates);
+        // If this is the first progress event (prevProgress is 0 or undefined and percent > 0), flush immediately
+        if ((prevProgress === 0 || prevProgress === undefined) && percent > 0) {
+          flushProgressUpdates(); // Immediate flush for first progress
+        } else {
+          flushProgressUpdates(); // Throttled for subsequent updates
         }
       }
     })
@@ -354,22 +429,38 @@ function App() {
       delete pendingProgressUpdatesRef.current[item.name];
       if (lastProgressRef.current) lastProgressRef.current[item.name] = 100;
       setDownloadProgress(pgo => ({ ...pgo, [item.name]: 100 }));
-      setGalleryItems(prevItems =>
-        prevItems.map(gi =>
-          gi.name === item.name ? { ...gi, isIngested: true, localPath: dest } : gi
-        )
-      );
+      setGalleryItems(prevItems => {
+        let changed = false;
+        const newItems = prevItems.map(gi => {
+          if (gi.name === item.name) {
+            if (!gi.isIngested || gi.localPath !== dest) {
+              changed = true;
+              return { ...gi, isIngested: true, localPath: dest };
+            }
+          }
+          return gi;
+        });
+        return changed ? newItems : prevItems;
+      });
       setActiveManualDownloadsCount(prevCount => Math.max(0, prevCount - 1));
     })
     .catch((e) => {
       console.error('Download failed:', item.name, e);
       setActiveManualDownloadsCount(prevCount => Math.max(0, prevCount - 1));
       setDownloadProgress(pgo => { const newProgress = { ...pgo }; delete newProgress[item.name]; return newProgress; });
-      setGalleryItems(prevItems =>
-        prevItems.map(gi =>
-          gi.name === item.name ? { ...gi, isIngested: false } : gi
-        )
-      );
+      setGalleryItems(prevItems => {
+        let changed = false;
+        const newItems = prevItems.map(gi => {
+          if (gi.name === item.name) {
+            if (gi.isIngested) {
+              changed = true;
+              return { ...gi, isIngested: false };
+            }
+          }
+          return gi;
+        });
+        return changed ? newItems : prevItems;
+      });
     });
   }, [
     ZCAM_IP,
@@ -380,7 +471,6 @@ function App() {
     downloadProgressRef,
     lastProgressRef,
     pendingProgressUpdatesRef,
-    flushScheduledRef,
     flushProgressUpdates
     // currentGalleryPath (state) and autoIngestPath (state) are NOT dependencies.
     // Their values are read from currentGalleryPathRef.current and autoIngestPathRef.current.
@@ -623,8 +713,8 @@ function App() {
           }
           devLog(`[DEBUG] setGalleryItems: effectivelySame = ${effectivelySame}`);
           if (effectivelySame) {
-            devLog('[App.jsx fetchGalleryAndSizes setGalleryItems] Sorted final items are effectively same as previous, returning prevItems to avoid re-render.');
-            return prevItems; // Avoid new reference if content is same after sorting
+            devLog('[App.jsx fetchGalleryAndSizes setGalleryItems] Sorted final items are effectively same as previous, skipping setGalleryItems to avoid re-render.');
+            return prevItems; // Do not call setGalleryItems if nothing changed
           }
         }
 
@@ -677,10 +767,42 @@ function App() {
     }
   }, []);
 
-  // Memoize sorted gallery items - ADD sortCriteria back to dependencies
+  // Advanced memoization for sortedGalleryItems to prevent unnecessary re-renders
+  const lastSortedRef = useRef({
+    galleryItems: null,
+    sortCriteria: null,
+    sorted: [],
+  });
   const sortedGalleryItems = useMemo(() => {
-    devLog(`[App.jsx useMemo sortedGalleryItems] Re-sorting gallery items. Count: ${galleryItems.length} Criteria:`, JSON.stringify(sortCriteria));
-    return sortItems(galleryItems, sortCriteria);
+    // If galleryItems and sortCriteria are unchanged (by reference and value), reuse last sorted
+    if (
+      lastSortedRef.current.galleryItems === galleryItems &&
+      lastSortedRef.current.sortCriteria &&
+      lastSortedRef.current.sortCriteria.field === sortCriteria.field &&
+      lastSortedRef.current.sortCriteria.order === sortCriteria.order
+    ) {
+      return lastSortedRef.current.sorted;
+    }
+    // Otherwise, sort and update ref
+    devLog(`[App.jsx useMemo sortedGalleryItems] Re-sorting gallery items. Count: ${galleryItems.length} Criteria:`, sortCriteria);
+    const sorted = [...galleryItems].sort((a, b) => {
+      if (sortCriteria.field === 'name') {
+        return sortCriteria.order === 'asc'
+          ? a.name.localeCompare(b.name)
+          : b.name.localeCompare(a.name);
+      } else if (sortCriteria.field === 'date') {
+        const dateA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const dateB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return sortCriteria.order === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+      return 0;
+    });
+    lastSortedRef.current = {
+      galleryItems,
+      sortCriteria: { ...sortCriteria },
+      sorted,
+    };
+    return sorted;
   }, [galleryItems, sortCriteria]);
 
   // Callback to handle sort changes
@@ -850,7 +972,7 @@ function App() {
         handleNewFileIngested,
         handleIngestProgress,
         (itemName, localThumbPath) => { // onThumbnailReady callback
-          devLog(`[App.jsx] Thumbnail ready for ${itemName} at ${localThumbPath}`);
+          // devLog(`[App.jsx] Thumbnail ready for ${itemName} at ${localThumbPath}`);
           setGalleryItems(prevItems => {
             let itemFoundAndChanged = false;
             const newItems = prevItems.map(item => {
@@ -1080,7 +1202,7 @@ function App() {
   };
 
   // Component to handle async loading of local thumbnails - OPTIMIZED
-  const LocalThumbnail = React.memo(({ localPath, item, commonStyle, onPreview, onFolderClick, loadedThumbnailsLogRef }) => {
+  const LocalThumbnail = React.memo(({ localPath, item, commonStyle, onPreview, onFolderClick, loadedThumbnailsLogRef, itemProgress }) => {
     // const logKey = `${item.name}-${localPath ? 'EXISTS' : 'NULL'}`;
     // if (!LocalThumbnail._lastLoggedState || LocalThumbnail._lastLoggedState[item.name] !== logKey) {
     //   devLog(`[LocalThumbnail] 🖼️ RENDER: ${item.name} - localPath: ${localPath ? 'EXISTS' : 'NULL'}`);
@@ -1141,7 +1263,7 @@ function App() {
 
       return () => { isActive = false; };
     // dataUrl REMOVED from dependency array to prevent loop. Effect now runs on localPath change.
-    }, [localPath, loadedThumbnailsLogRef, item.name]); // item.name added for safety if localPath could be reused by different items (unlikely here)
+    }, [localPath, loadedThumbnailsLogRef, item.name, itemProgress]); // item.name added for safety if localPath could be reused by different items (unlikely here)
 
     const cameraThumbnailUrl = React.useMemo(() => {
       if (/(\.mov|\.mp4)$/i.test(item.name)) {
@@ -1226,7 +1348,8 @@ function App() {
     const gridCellContext = useContext(GridCellContext);
     const item = itemsArray[rowIndex * columnCount + columnIndex];
     if (!item) return <div style={style}></div>;
-    const itemProgressForDisplay = progressState[item.name];
+    // Get progress for this item only from progressState
+    const itemProgressForDisplay = progressState[item.name] || 0;
     devLog(`[Cell] RENDER: ${item.name}, Progress: ${itemProgressForDisplay}`);
     if (!gridCellContext) return <div style={style}></div>;
     const {
@@ -1271,6 +1394,7 @@ function App() {
             onPreview={renderPreview}
             onFolderClick={handleGalleryNavigate}
             loadedThumbnailsLogRef={loadedThumbnailsLogRef}
+            itemProgress={itemProgressForDisplay} // Pass progress directly
           />
           {/* Compact info line: filename, size, date, download/checkmark, progress bar */}
           <div className="file-info" style={{ width: '100%', marginTop: 1, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72em', color: '#bbb', whiteSpace: 'nowrap', overflow: 'hidden', minHeight: 18 }}>
@@ -1316,8 +1440,9 @@ function App() {
     if (!prevItem || !nextItem) {
       return prevItem === nextItem;
     }
-    const prevItemProgress = prevData.progressState[prevItem.name];
-    const nextItemProgress = nextData.progressState[nextItem.name];
+    // Compare only item and progress
+    const prevItemProgress = prevData.progressState[prevItem.name] || 0;
+    const nextItemProgress = nextData.progressState[nextItem.name] || 0;
     if (
       prevItem === nextItem &&
       prevItemProgress === nextItemProgress &&
@@ -1339,13 +1464,12 @@ function App() {
 
   // Base gridItemData, does not include columnCount as it's derived dynamically
   const baseGridItemData = useMemo(() => {
-    devLog(`[App.jsx useMemo baseGridItemData] Recomputing. Deps: sortedGalleryItems, downloadProgress`);
+    devLog(`[App.jsx useMemo baseGridItemData] Recomputing. Deps: sortedGalleryItems`);
     return {
       itemsArray: sortedGalleryItems,
-      progressState: downloadProgress,
       // columnCount will be added dynamically inside AutoSizer's children
     };
-  }, [sortedGalleryItems, downloadProgress]);
+  }, [sortedGalleryItems]);
 
   // Preview overlay component
   const PreviewOverlay = ({ item, onClose }) => {
@@ -1369,385 +1493,399 @@ function App() {
 
   devLog('[DEBUG] App render');
 
+  // Add debug log in App render
+  const appRenderCountRef = useRef(0);
+  appRenderCountRef.current++;
+  devLog(`[DEBUG] App render #${appRenderCountRef.current}`, {
+    galleryItemsLen: galleryItems.length,
+    downloadProgress,
+    view,
+    connected,
+    galleryLoading,
+    currentGalleryPath,
+  });
+
   return (
-    // Outermost container - ensures it fills the viewport and no body scrollbars
-    <div className="macos-app" style={{
-      height: '100vh', // Use full viewport height
-      width: '100vw',   // Use full viewport width
-      background: 'var(--main-bg)',
-      margin: 0,
-      padding: 0, // Ensure no padding on the root
-      overflow: 'hidden', // Prevent body scrollbars
-    }}>
-      {/* Main layout: flex column for toolbar + content */}
-      <main className="main-content" style={{
-        height: '100%', // Fill parent (macos-app)
-        width: '100%',  // Fill parent (macos-app)
-        display: 'flex',
-        flexDirection: 'column',
-        boxSizing: 'border-box',
-        // No overflow here, children will manage their own
+    <DownloadProgressProvider>
+      {/* Outermost container - ensures it fills the viewport and no body scrollbars */}
+      <div className="macos-app" style={{
+        height: '100vh',
+        width: '100vw',
+        background: 'var(--main-bg)',
+        margin: 0,
+        padding: 0,
+        overflow: 'hidden',
       }}>
-        <header className="toolbar" style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          gap: '2rem',
-          padding: '0.5rem 1rem', // More compact
-          flexShrink: 0,
-          background: 'var(--toolbar-bg, #2a2a2a)',
-          boxSizing: 'border-box',
+        {/* Main layout: flex column for toolbar + content */}
+        <main className="main-content" style={{
+          height: '100%',
           width: '100%',
-          borderBottom: '1px solid #444',
+          display: 'flex',
+          flexDirection: 'column',
+          boxSizing: 'border-box',
         }}>
-          <button 
-            onClick={handleGalleryBack} 
-            disabled={currentGalleryPathRef.current === '/DCIM/'} // Use ref
-            style={{ 
-              background: 'none',
-              border: 'none',
-              color: currentGalleryPathRef.current === '/DCIM/' ? '#666' : '#fff', // Use ref
-              cursor: currentGalleryPathRef.current === '/DCIM/' ? 'not-allowed' : 'pointer', // Use ref
-              fontSize: '0.9rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '2px 6px',
-            }}
-          >
-            ← Back
-          </button>
-          
-          {/* Ingest Folder Display & Selector */}
-          {connected && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ 
-                color: '#ccc', 
-                fontSize: '0.85rem',
-                fontWeight: '500',
-                whiteSpace: 'nowrap'
-              }}>
-                📁 Ingest:
-              </span>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.3rem',
-                background: '#333',
-                border: '1px solid #555',
-                borderRadius: '4px',
-                padding: '4px 8px',
-                minWidth: '200px',
-                maxWidth: '300px',
-              }}>
-                <input
-                  type="text"
-                  value={autoIngestPathRef.current ? autoIngestPathRef.current.replace(/\\/g, '/') : 'No folder selected'}
-                  readOnly
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: autoIngestPathRef.current ? '#fff' : '#888',
-                    fontSize: '0.8rem',
-                    outline: 'none',
-                    flex: 1,
-                    cursor: 'pointer',
-                    fontStyle: autoIngestPathRef.current ? 'normal' : 'italic',
-                    textOverflow: 'ellipsis',
-                    overflow: 'hidden',
-                    whiteSpace: 'nowrap',
-                  }}
-                  onClick={handleSetIngestPath}
-                  title={autoIngestPathRef.current ? `Current ingest folder: ${autoIngestPathRef.current}` : 'Click to select ingest folder'}
-                />
+          <header className="toolbar" style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            gap: '2rem',
+            padding: '0.5rem 1rem', // More compact
+            flexShrink: 0,
+            background: 'var(--toolbar-bg, #2a2a2a)',
+            boxSizing: 'border-box',
+            width: '100%',
+            borderBottom: '1px solid #444',
+          }}>
+            <button 
+              onClick={handleGalleryBack} 
+              disabled={currentGalleryPathRef.current === '/DCIM/'} // Use ref
+              style={{ 
+                background: 'none',
+                border: 'none',
+                color: currentGalleryPathRef.current === '/DCIM/' ? '#666' : '#fff', // Use ref
+                cursor: currentGalleryPathRef.current === '/DCIM/' ? 'not-allowed' : 'pointer', // Use ref
+                fontSize: '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '2px 6px',
+              }}
+            >
+              ← Back
+            </button>
+            
+            {/* Ingest Folder Display & Selector */}
+            {connected && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ 
+                  color: '#ccc', 
+                  fontSize: '0.85rem',
+                  fontWeight: '500',
+                  whiteSpace: 'nowrap'
+                }}>
+                  📁 Ingest:
+                </span>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.3rem',
+                  background: '#333',
+                  border: '1px solid #555',
+                  borderRadius: '4px',
+                  padding: '4px 8px',
+                  minWidth: '200px',
+                  maxWidth: '300px',
+                }}>
+                  <input
+                    type="text"
+                    value={autoIngestPathRef.current ? autoIngestPathRef.current.replace(/\\/g, '/') : 'No folder selected'}
+                    readOnly
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: autoIngestPathRef.current ? '#fff' : '#888',
+                      fontSize: '0.8rem',
+                      outline: 'none',
+                      flex: 1,
+                      cursor: 'pointer',
+                      fontStyle: autoIngestPathRef.current ? 'normal' : 'italic',
+                      textOverflow: 'ellipsis',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                    }}
+                    onClick={handleSetIngestPath}
+                    title={autoIngestPathRef.current ? `Current ingest folder: ${autoIngestPathRef.current}` : 'Click to select ingest folder'}
+                  />
+                  <button 
+                    onClick={handleSetIngestPath}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#dc3545',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      padding: '0',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                    title="Change ingest folder"
+                  >
+                    📝
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Auto Ingest Toggle Switch */}
+            {connected && autoIngestServiceRef.current && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span style={{ 
+                  color: '#ccc', 
+                  fontSize: '0.85rem',
+                  fontWeight: '500'
+                }}>
+                  Auto Ingest
+                </span>
+                
+                {/* Option 1: iOS-style toggle switch */}
                 <button 
-                  onClick={handleSetIngestPath}
+                  onClick={toggleAutoIngest} 
                   style={{
-                    background: 'none',
+                    background: autoIngestEnabled ? '#28a745' : '#444',
                     border: 'none',
-                    color: '#dc3545',
+                    borderRadius: '12px',
+                    width: '40px',
+                    height: '20px',
                     cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    padding: '0',
+                    position: 'relative',
+                    transition: 'background-color 0.3s ease',
                     display: 'flex',
                     alignItems: 'center',
+                    padding: '2px',
                   }}
-                  title="Change ingest folder"
+                  title={autoIngestEnabled ? 'Stop automatic downloading' : 'Start automatic downloading'}
                 >
-                  📝
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Auto Ingest Toggle Switch */}
-          {connected && autoIngestServiceRef.current && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <span style={{ 
-                color: '#ccc', 
-                fontSize: '0.85rem',
-                fontWeight: '500'
-              }}>
-                Auto Ingest
-              </span>
-              
-              {/* Option 1: iOS-style toggle switch */}
-              <button 
-                onClick={toggleAutoIngest} 
-                style={{
-                  background: autoIngestEnabled ? '#28a745' : '#444',
-                  border: 'none',
-                  borderRadius: '12px',
-                  width: '40px',
-                  height: '20px',
-                  cursor: 'pointer',
-                  position: 'relative',
-                  transition: 'background-color 0.3s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '2px',
-                }}
-                title={autoIngestEnabled ? 'Stop automatic downloading' : 'Start automatic downloading'}
-              >
-                <div style={{
-                  width: '16px',
-                  height: '16px',
-                  borderRadius: '50%',
-                  background: 'white',
-                  transition: 'transform 0.3s ease',
-                  transform: autoIngestEnabled ? 'translateX(20px)' : 'translateX(0px)',
-                }} />
-              </button>
-              
-              {/* Option 2: Text-based toggle button (commented out for now)
-              <button 
-                onClick={toggleAutoIngest} 
-                style={{
-                  background: autoIngestEnabled ? '#28a745' : 'transparent',
-                  border: `1px solid ${autoIngestEnabled ? '#28a745' : '#666'}`,
-                  borderRadius: '6px',
-                  color: autoIngestEnabled ? 'white' : '#ccc',
-                  cursor: 'pointer',
-                  fontSize: '0.75rem',
-                  fontWeight: '500',
-                  padding: '4px 8px',
-                  transition: 'all 0.2s ease',
-                  minWidth: '45px',
-                }}
-                title={autoIngestEnabled ? 'Stop automatic downloading' : 'Start automatic downloading'}
-              >
-                {autoIngestEnabled ? 'ON' : 'OFF'}
-              </button>
-              */}
-              
-              {/* Option 3: Checkbox-style toggle (commented out for now)
-              <label style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                cursor: 'pointer',
-                gap: '0.3rem'
-              }}>
-                <input 
-                  type="checkbox" 
-                  checked={autoIngestEnabled}
-                  onChange={toggleAutoIngest}
-                  style={{
+                  <div style={{
                     width: '16px',
                     height: '16px',
-                    accentColor: '#28a745',
+                    borderRadius: '50%',
+                    background: 'white',
+                    transition: 'transform 0.3s ease',
+                    transform: autoIngestEnabled ? 'translateX(20px)' : 'translateX(0px)',
+                  }} />
+                </button>
+                
+                {/* Option 2: Text-based toggle button (commented out for now)
+                <button 
+                  onClick={toggleAutoIngest} 
+                  style={{
+                    background: autoIngestEnabled ? '#28a745' : 'transparent',
+                    border: `1px solid ${autoIngestEnabled ? '#28a745' : '#666'}`,
+                    borderRadius: '6px',
+                    color: autoIngestEnabled ? 'white' : '#ccc',
                     cursor: 'pointer',
+                    fontSize: '0.75rem',
+                    fontWeight: '500',
+                    padding: '4px 8px',
+                    transition: 'all 0.2s ease',
+                    minWidth: '45px',
                   }}
-                />
-                <span style={{ 
-                  color: autoIngestEnabled ? '#28a745' : '#ccc',
-                  fontSize: '0.75rem',
-                  fontWeight: '500',
-                  transition: 'color 0.2s ease'
-                }}>
+                  title={autoIngestEnabled ? 'Stop automatic downloading' : 'Start automatic downloading'}
+                >
                   {autoIngestEnabled ? 'ON' : 'OFF'}
-                </span>
-              </label>
-              */}
+                </button>
+                */}
+                
+                {/* Option 3: Checkbox-style toggle (commented out for now)
+                <label style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  cursor: 'pointer',
+                  gap: '0.3rem'
+                }}>
+                  <input 
+                    type="checkbox" 
+                    checked={autoIngestEnabled}
+                    onChange={toggleAutoIngest}
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      accentColor: '#28a745',
+                      cursor: 'pointer',
+                    }}
+                  />
+                  <span style={{ 
+                    color: autoIngestEnabled ? '#28a745' : '#ccc',
+                    fontSize: '0.75rem',
+                    fontWeight: '500',
+                    transition: 'color 0.2s ease'
+                  }}>
+                    {autoIngestEnabled ? 'ON' : 'OFF'}
+                  </span>
+                </label>
+                */}
+              </div>
+            )}
+            
+            {/* Unified Connection Control */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <button 
+                onClick={connected ? handleDisconnect : handleConnect}
+                disabled={connecting}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: connected ? '#dc3545' : connecting ? '#ffc107' : '#28a745',
+                  cursor: connecting ? 'not-allowed' : 'pointer',
+                  fontSize: '1.1em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  fontWeight: '500',
+                  opacity: connecting ? 0.7 : 1,
+                  transition: 'all 0.2s ease',
+                  padding: '2px 8px',
+                }}
+                title={
+                  connecting ? 'Connecting to camera...' : 
+                  connected ? 'Disconnect from Z CAM' : 
+                  'Connect to Z CAM'
+                }
+              >
+                {connecting ? '🔄 Connecting...' : connected ? 
+                  <span style={{ fontSize: '1.2em', color: '#dc3545', verticalAlign: 'middle' }} title="Disconnect">⏻</span>
+                  : '🔌 Connect to Z CAM'
+                }
+              </button>
             </div>
-          )}
-          
-          {/* Unified Connection Control */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            
             <button 
-              onClick={connected ? handleDisconnect : handleConnect}
-              disabled={connecting}
               style={{
                 background: 'none',
                 border: 'none',
-                color: connected ? '#dc3545' : connecting ? '#ffc107' : '#28a745',
-                cursor: connecting ? 'not-allowed' : 'pointer',
-                fontSize: '1.1em',
+                color: '#ccc',
+                cursor: 'pointer',
+                fontSize: '1.2rem',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.4rem',
-                fontWeight: '500',
-                opacity: connecting ? 0.7 : 1,
-                transition: 'all 0.2s ease',
-                padding: '2px 8px',
+                transition: 'opacity 0.2s',
               }}
-              title={
-                connecting ? 'Connecting to camera...' : 
-                connected ? 'Disconnect from Z CAM' : 
-                'Connect to Z CAM'
-              }
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              onMouseEnter={(e) => e.target.style.opacity = '0.7'}
+              onMouseLeave={(e) => e.target.style.opacity = '1'}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
             >
-              {connecting ? '🔄 Connecting...' : connected ? 
-                <span style={{ fontSize: '1.2em', color: '#dc3545', verticalAlign: 'middle' }} title="Disconnect">⏻</span>
-                : '🔌 Connect to Z CAM'
-              }
+              {theme === 'dark' ? '🌙' : '☀️'}
             </button>
-          </div>
-          
-          <button 
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#ccc',
-              cursor: 'pointer',
-              fontSize: '1.2rem',
-              display: 'flex',
-              alignItems: 'center',
-              transition: 'opacity 0.2s',
-            }}
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            onMouseEnter={(e) => e.target.style.opacity = '0.7'}
-            onMouseLeave={(e) => e.target.style.opacity = '1'}
-            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-          >
-            {theme === 'dark' ? '🌙' : '☀️'}
-          </button>
-        </header>
+          </header>
 
-        {/* Content area: takes remaining space and gallery grid scrolls inside it */}
-        <section className="content-area" style={{
-          flexGrow: 1, // Take all available vertical space
-          width: '100%',
-          overflow: 'hidden', // Important: parent of scrolling container
-          boxSizing: 'border-box',
-          display: 'flex', 
-          flexDirection: 'column',
-        }}>
-          {error && <div className="error-msg" style={{ padding: '1em', boxSizing: 'border-box', width: '100%' }}>{error}</div>}
-          {view === 'gallery' && connected && (
-            // This div wraps the gallery grid and loading/empty states
-            <div style={{ 
-              flexGrow: 1,
-              width: '100%',
-              overflow: 'hidden', 
-              display: 'flex', 
-              flexDirection: 'column',
-              boxSizing: 'border-box',
-            }}>
-              <div className="gallery-view" style={{ padding: '0 24px' }}>
-                <div className="gallery-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 0 }}>
-                  <h2 style={{ margin: 0, fontWeight: 600, fontSize: '1.4em' }}>Gallery: {currentGalleryPathRef.current}</h2>
-                  <GallerySortControl
-                    sortCriteria={sortCriteria}
-                    onSortChange={handleSortChange}
-                  />
-                </div>
-                {/* Gallery Grid container - this one scrolls. AutoSizer now always rendered. */}
-                <div 
-                  ref={gridContainerRef} 
-                  style={{
-                    flexGrow: 1,
-                    width: '100%',
-                    height: '100%', // Important for AutoSizer
-                    overflow: 'hidden',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  <AutoSizer key={currentGalleryPathRef.current}> 
-                    {({ height, width }) => {
-                      // devLog(`[App.jsx AutoSizer] Rendering - Path: ${currentGalleryPath}, Width: ${width}, Height: ${height}, Items: ${sortedGalleryItems.length}, Loading: ${galleryLoading}`); // Removed this verbose log
-                      
-                      if (galleryLoading) {
-                        devLog('[App.jsx AutoSizer] Rendering loading indicator because galleryLoading is true.');
-                        return <div className="loading-indicator" style={{width: '100%', height: '100%', display:'flex', alignItems:'center', justifyContent:'center'}}>Loading gallery...</div>;
-                      }
-                      
-                      if (width === 0 || height === 0 || (sortedGalleryItems.length === 0 && !galleryLoading)) {
-                        if (sortedGalleryItems.length === 0 && !galleryLoading) {
-                          devLog('[App.jsx AutoSizer] Rendering placeholder: No files found.');
-                          return <div className="placeholder" style={{ textAlign: 'center', padding: '1em', boxSizing: 'border-box', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>No files or folders found.</div>;
-                        }
-                        devLog('[App.jsx AutoSizer] Rendering null (width/height 0 or items 0 while loading).');
-                        return null;
-                      }
-
-                      // Calculate columnCount directly within AutoSizer's children render function
-                      const localColumnCount = Math.max(1, Math.floor((width + GAP) / (ITEM_MIN_WIDTH + GAP)));
-                      devLog(`[App.jsx AutoSizer] Calculated localColumnCount: ${localColumnCount} for width: ${width}`);
-                      
-                      // Subtract GAP from each cell so there is always a visible gap
-                      const columnWidthCalculated = (localColumnCount > 0) ? Math.floor((width - (localColumnCount + 1) * GAP) / localColumnCount) : ITEM_MIN_WIDTH;
-                      const thumbnailHeight = columnWidthCalculated * (9 / 16);
-                      const textHeight = 18; // Info line height
-                      const rowHeight = Math.ceil(thumbnailHeight + textHeight); // No extra vertical gap, handled by grid
-                      const rowCount = (localColumnCount > 0) ? Math.ceil(sortedGalleryItems.length / localColumnCount) : 0;
-
-                      const dynamicGridItemData = {
-                        ...baseGridItemData,
-                        columnCount: localColumnCount,
-                        columnWidth: columnWidthCalculated
-                      };
-
-                      const currentGridCellContextValue = {
-                        ...gridCellContextValueBase,
-                        columnCount: localColumnCount 
-                      };
-
-                      if (height === 0 || width === 0 || (rowCount === 0 && sortedGalleryItems.length > 0) ) {
-                          devLog(`[App.jsx AutoSizer] Rendering fallback (height/width 0 or rowCount 0 with items). H:${height}, W:${width}, RC:${rowCount}, Items:${sortedGalleryItems.length}`);
-                          if (sortedGalleryItems.length > 0 && !galleryLoading) {
-                              return <div className="placeholder" style={{ textAlign: 'center', padding: '1em', boxSizing: 'border-box', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Not enough space to display items.</div>;
-                          }
-                          return null; 
-                      }
-                      
-                      return (
-                        <GridCellContext.Provider value={currentGridCellContextValue}>
-                          <Grid
-                            className="gallery-grid"
-                            columnCount={localColumnCount}
-                            columnWidth={columnWidthCalculated}
-                            height={height}
-                            rowCount={rowCount}
-                            rowHeight={rowHeight}
-                            width={width}
-                            itemData={dynamicGridItemData}
-                            itemKey={({ columnIndex, rowIndex }) => `R${rowIndex}-C${columnIndex}`} 
-                            children={Cell} 
-                          />
-                        </GridCellContext.Provider>
-                      );
+          {/* Content area: takes remaining space and gallery grid scrolls inside it */}
+          <section className="content-area" style={{
+            flexGrow: 1, // Take all available vertical space
+            width: '100%',
+            overflow: 'hidden', // Important: parent of scrolling container
+            boxSizing: 'border-box',
+            display: 'flex', 
+            flexDirection: 'column',
+          }}>
+            {error && <div className="error-msg" style={{ padding: '1em', boxSizing: 'border-box', width: '100%' }}>{error}</div>}
+            {view === 'gallery' && connected && (
+              // This div wraps the gallery grid and loading/empty states
+              <div style={{ 
+                flexGrow: 1,
+                width: '100%',
+                overflow: 'hidden', 
+                display: 'flex', 
+                flexDirection: 'column',
+                boxSizing: 'border-box',
+              }}>
+                <div className="gallery-view" style={{ padding: '0 24px' }}>
+                  <div className="gallery-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 0 }}>
+                    <h2 style={{ margin: 0, fontWeight: 600, fontSize: '1.4em' }}>Gallery: {currentGalleryPathRef.current}</h2>
+                    <GallerySortControl
+                      sortCriteria={sortCriteria}
+                      onSortChange={handleSortChange}
+                    />
+                  </div>
+                  {/* Gallery Grid container - this one scrolls. AutoSizer now always rendered. */}
+                  <div 
+                    ref={gridContainerRef} 
+                    style={{
+                      flexGrow: 1,
+                      width: '100%',
+                      height: '100%', // Important for AutoSizer
+                      overflow: 'hidden',
+                      boxSizing: 'border-box',
                     }}
-                  </AutoSizer>
+                  >
+                    <AutoSizer key={currentGalleryPathRef.current}> 
+                      {({ height, width }) => {
+                        // devLog(`[App.jsx AutoSizer] Rendering - Path: ${currentGalleryPath}, Width: ${width}, Height: ${height}, Items: ${sortedGalleryItems.length}, Loading: ${galleryLoading}`); // Removed this verbose log
+                        
+                        if (galleryLoading) {
+                          devLog('[App.jsx AutoSizer] Rendering loading indicator because galleryLoading is true.');
+                          return <div className="loading-indicator" style={{width: '100%', height: '100%', display:'flex', alignItems:'center', justifyContent:'center'}}>Loading gallery...</div>;
+                        }
+                        
+                        if (width === 0 || height === 0 || (sortedGalleryItems.length === 0 && !galleryLoading)) {
+                          if (sortedGalleryItems.length === 0 && !galleryLoading) {
+                            devLog('[App.jsx AutoSizer] Rendering placeholder: No files found.');
+                            return <div className="placeholder" style={{ textAlign: 'center', padding: '1em', boxSizing: 'border-box', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>No files or folders found.</div>;
+                          }
+                          devLog('[App.jsx AutoSizer] Rendering null (width/height 0 or items 0 while loading).');
+                          return null;
+                        }
+
+                        // Calculate columnCount directly within AutoSizer's children render function
+                        const localColumnCount = Math.max(1, Math.floor((width + GAP) / (ITEM_MIN_WIDTH + GAP)));
+                        devLog(`[App.jsx AutoSizer] Calculated localColumnCount: ${localColumnCount} for width: ${width}`);
+                        
+                        // Subtract GAP from each cell so there is always a visible gap
+                        const columnWidthCalculated = (localColumnCount > 0) ? Math.floor((width - (localColumnCount + 1) * GAP) / localColumnCount) : ITEM_MIN_WIDTH;
+                        const thumbnailHeight = columnWidthCalculated * (9 / 16);
+                        const textHeight = 18; // Info line height
+                        const rowHeight = Math.ceil(thumbnailHeight + textHeight); // No extra vertical gap, handled by grid
+                        const rowCount = (localColumnCount > 0) ? Math.ceil(sortedGalleryItems.length / localColumnCount) : 0;
+
+                        const dynamicGridItemData = {
+                          ...baseGridItemData,
+                          progressState: downloadProgress, // Ensure progressState is always present
+                          columnCount: localColumnCount,
+                          columnWidth: columnWidthCalculated
+                        };
+
+                        const currentGridCellContextValue = {
+                          ...gridCellContextValueBase,
+                          columnCount: localColumnCount 
+                        };
+
+                        if (height === 0 || width === 0 || (rowCount === 0 && sortedGalleryItems.length > 0) ) {
+                            devLog(`[App.jsx AutoSizer] Rendering fallback (height/width 0 or rowCount 0 with items). H:${height}, W:${width}, RC:${rowCount}, Items:${sortedGalleryItems.length}`);
+                            if (sortedGalleryItems.length > 0 && !galleryLoading) {
+                                return <div className="placeholder" style={{ textAlign: 'center', padding: '1em', boxSizing: 'border-box', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Not enough space to display items.</div>;
+                            }
+                            return null; 
+                        }
+                        
+                        return (
+                          <GridCellContext.Provider value={currentGridCellContextValue}>
+                            <Grid
+                              className="gallery-grid"
+                              columnCount={localColumnCount}
+                              columnWidth={columnWidthCalculated}
+                              height={height}
+                              rowCount={rowCount}
+                              rowHeight={rowHeight}
+                              width={width}
+                              itemData={dynamicGridItemData}
+                              itemKey={({ columnIndex, rowIndex }) => `R${rowIndex}-C${columnIndex}`} 
+                              children={Cell} 
+                            />
+                          </GridCellContext.Provider>
+                        );
+                      }}
+                    </AutoSizer>
+                  </div>
                 </div>
+                <PreviewOverlay item={previewItem} onClose={() => setPreviewItem(null)} />
               </div>
-              <PreviewOverlay item={previewItem} onClose={() => setPreviewItem(null)} />
-            </div>
-          )}
-          {view === 'info' && connected && cameraInfo && (
-            <div className="camera-info">
-              <h3>Camera Info</h3>
-              <pre>{JSON.stringify(cameraInfo, null, 2)}</pre>
-            </div>
-          )}
-          {view === 'info' && !connected && (
-            <div className="placeholder">Connect to the camera to view info.</div>
-          )}
-          {view === 'settings' && (
-            <div className="placeholder">Settings coming soon…</div>
-          )}
-        </section>
-      </main>
-    </div>
+            )}
+            {view === 'info' && connected && cameraInfo && (
+              <div className="camera-info">
+                <h3>Camera Info</h3>
+                <pre>{JSON.stringify(cameraInfo, null, 2)}</pre>
+              </div>
+            )}
+            {view === 'info' && !connected && (
+              <div className="placeholder">Connect to the camera to view info.</div>
+            )}
+            {view === 'settings' && (
+              <div className="placeholder">Settings coming soon…</div>
+            )}
+          </section>
+        </main>
+      </div>
+    </DownloadProgressProvider>
   );
 }
 
