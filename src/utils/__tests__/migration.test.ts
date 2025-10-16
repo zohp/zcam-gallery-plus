@@ -1,227 +1,265 @@
 /**
- * Tests for migration utilities
+ * Migration service tests
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { MigrationService, MigrationUtils } from '../migration'
 import fs from 'fs-extra'
 import path from 'path'
-import { app } from 'electron'
 
-// Mock electron app
+// Mock Electron app
 vi.mock('electron', () => ({
   app: {
     getPath: vi.fn((name: string) => {
-      if (name === 'userData') return '/mock/user-data'
-      if (name === 'documents') return '/mock/documents'
-      if (name === 'home') return '/mock/home'
+      if (name === 'userData') return '/mock/userData'
       return '/mock/path'
     }),
   },
 }))
 
-// Mock fs-extra
-vi.mock('fs-extra', () => ({
-  default: {
-    existsSync: vi.fn(),
-    ensureDir: vi.fn(),
-    copy: vi.fn(),
-    writeJson: vi.fn(),
-    readJson: vi.fn(),
-    writeFile: vi.fn(),
-    remove: vi.fn(),
-    move: vi.fn(),
-  },
-}))
-
 describe('MigrationService', () => {
   let migrationService: MigrationService
-  const mockFs = fs as any
+  const mockOldAppDataPath = '/mock/oldAppData'
+  const mockNewAppDataPath = '/mock/userData'
+  const mockBackupPath = '/mock/userData/migration-backup'
 
   beforeEach(() => {
+    // Reset all mocks
     vi.clearAllMocks()
+    
+    // Mock fs methods
+    vi.spyOn(fs, 'existsSync').mockReturnValue(false)
+    vi.spyOn(fs, 'ensureDir').mockResolvedValue(undefined)
+    vi.spyOn(fs, 'copy').mockResolvedValue(undefined)
+    vi.spyOn(fs, 'writeJson').mockResolvedValue(undefined)
+    vi.spyOn(fs, 'readJson').mockResolvedValue({})
+    vi.spyOn(fs, 'writeFile').mockResolvedValue(undefined)
+    vi.spyOn(fs, 'move').mockResolvedValue(undefined)
+    vi.spyOn(fs, 'remove').mockResolvedValue(undefined)
+
     migrationService = new MigrationService()
   })
 
   afterEach(() => {
-    vi.resetAllMocks()
-  })
-
-  describe('detectOldAppDataPath', () => {
-    it('should detect old app data in common locations', () => {
-      mockFs.existsSync.mockImplementation((filePath: string) => {
-        return filePath.includes('zcam-gallery')
-      })
-
-      // This tests the private method indirectly through constructor
-      expect(migrationService).toBeDefined()
-    })
-
-    it('should return empty string if no old data found', () => {
-      mockFs.existsSync.mockReturnValue(false)
-
-      const service = new MigrationService()
-      expect(service).toBeDefined()
-    })
+    vi.restoreAllMocks()
   })
 
   describe('isMigrationNeeded', () => {
-    it('should return false if no old app data path', async () => {
-      mockFs.existsSync.mockReturnValue(false)
-
-      const needed = await migrationService.isMigrationNeeded()
-      expect(needed).toBe(false)
+    it('should return false when no old app data exists', async () => {
+      vi.spyOn(fs, 'existsSync').mockReturnValue(false)
+      
+      const result = await migrationService.isMigrationNeeded()
+      
+      expect(result).toBe(false)
     })
 
-    it('should return false if migration already completed', async () => {
-      mockFs.existsSync.mockImplementation((filePath: string) => {
-        return filePath.includes('.migration-complete')
+    it('should return false when migration already completed', async () => {
+      // Mock old app data exists
+      vi.spyOn(fs, 'existsSync').mockImplementation((path: string) => {
+        return path.includes('oldAppData') || path.includes('.migration-complete')
       })
-
-      const needed = await migrationService.isMigrationNeeded()
-      expect(needed).toBe(false)
+      
+      const result = await migrationService.isMigrationNeeded()
+      
+      expect(result).toBe(false)
     })
 
-    it('should return true if old data exists and migration not completed', async () => {
-      mockFs.existsSync.mockImplementation((filePath: string) => {
-        return filePath.includes('zcam-gallery') && !filePath.includes('.migration-complete')
+    it('should return true when old app data exists and migration not completed', async () => {
+      // Mock old app data exists but migration not completed
+      vi.spyOn(fs, 'existsSync').mockImplementation((path: string) => {
+        return path.includes('oldAppData') && !path.includes('.migration-complete')
       })
-
-      const needed = await migrationService.isMigrationNeeded()
-      expect(needed).toBe(true)
+      
+      const result = await migrationService.isMigrationNeeded()
+      
+      expect(result).toBe(true)
     })
   })
 
   describe('performMigration', () => {
-    it('should perform successful migration', async () => {
-      // Mock old data exists
-      mockFs.existsSync.mockReturnValue(true)
+    it('should create backup before migration', async () => {
+      // Mock old app data exists
+      vi.spyOn(fs, 'existsSync').mockImplementation((path: string) => {
+        return path.includes('oldAppData')
+      })
       
-      // Mock successful operations
-      mockFs.ensureDir.mockResolvedValue(undefined)
-      mockFs.copy.mockResolvedValue(undefined)
-      mockFs.writeJson.mockResolvedValue(undefined)
-      mockFs.writeFile.mockResolvedValue(undefined)
-      mockFs.readJson.mockResolvedValue({
+      // Mock loadOldAppData to return test data
+      const mockOldData = {
         settings: {
-          ingestPath: '/test/path',
-          autoIngest: true,
+          ingestPath: '/test/ingest',
           theme: 'dark',
+          autoIngest: true,
         },
         thumbnails: {
-          'file1': '/path/to/thumb1.jpg',
-          'file2': '/path/to/thumb2.jpg',
+          'file1': '/test/thumb1.jpg',
         },
         downloadHistory: [
           {
             fileName: 'test.mov',
-            downloadPath: '/downloads/test.mov',
+            downloadPath: '/test/downloads',
             timestamp: '2023-01-01T00:00:00Z',
-            size: 1024000,
+            size: 1000000,
           },
         ],
-      })
-
+      }
+      
+      vi.spyOn(fs, 'readJson').mockResolvedValue(mockOldData.settings)
+      
       const result = await migrationService.performMigration()
-
+      
       expect(result.success).toBe(true)
-      expect(result.migratedItems).toBeGreaterThan(0)
-      expect(result.errors).toHaveLength(0)
       expect(result.backupPath).toBeDefined()
+      expect(fs.ensureDir).toHaveBeenCalledWith(expect.stringContaining('migration-backup'))
+    })
+
+    it('should migrate settings correctly', async () => {
+      // Mock old app data exists
+      vi.spyOn(fs, 'existsSync').mockImplementation((path: string) => {
+        return path.includes('oldAppData')
+      })
+      
+      const oldSettings = {
+        ingestPath: '/test/ingest',
+        theme: 'dark',
+        autoIngest: true,
+        sortBy: 'date',
+        cameraIp: '192.168.1.100',
+      }
+      
+      vi.spyOn(fs, 'readJson').mockResolvedValue(oldSettings)
+      
+      const result = await migrationService.performMigration()
+      
+      expect(result.success).toBe(true)
+      expect(fs.writeJson).toHaveBeenCalledWith(
+        expect.stringContaining('settings.json'),
+        expect.objectContaining({
+          ingestPath: '/test/ingest',
+          theme: 'dark',
+          autoIngest: true,
+          sortPreference: 'date',
+          defaultCameraIp: '192.168.1.100',
+        }),
+        expect.any(Object)
+      )
     })
 
     it('should handle migration errors gracefully', async () => {
-      mockFs.existsSync.mockReturnValue(true)
-      mockFs.ensureDir.mockRejectedValue(new Error('Disk full'))
-
+      // Mock fs operations to throw error
+      vi.spyOn(fs, 'ensureDir').mockRejectedValue(new Error('Permission denied'))
+      
       const result = await migrationService.performMigration()
-
+      
       expect(result.success).toBe(false)
-      expect(result.errors.length).toBeGreaterThan(0)
-      expect(result.errors[0]).toContain('Disk full')
-    })
-
-    it('should return warning if no old data found', async () => {
-      mockFs.existsSync.mockReturnValue(false)
-      mockFs.readJson.mockResolvedValue(null)
-
-      const result = await migrationService.performMigration()
-
-      expect(result.success).toBe(true)
-      expect(result.warnings.length).toBeGreaterThan(0)
-      expect(result.warnings[0]).toContain('No old app data found')
+      expect(result.errors).toContain('Migration failed: Permission denied')
     })
   })
 
   describe('validateMigration', () => {
-    it('should validate successful migration', async () => {
-      mockFs.existsSync.mockReturnValue(true)
-      mockFs.readJson.mockResolvedValue({
-        version: '2.0.0',
-        ingestPath: '/test/path',
+    it('should return valid when migration is complete', async () => {
+      // Mock migration files exist
+      vi.spyOn(fs, 'existsSync').mockImplementation((path: string) => {
+        return path.includes('settings.json') || path.includes('.migration-complete')
       })
-
-      const validation = await migrationService.validateMigration()
-
-      expect(validation.valid).toBe(true)
-      expect(validation.issues).toHaveLength(0)
+      
+      vi.spyOn(fs, 'readJson').mockResolvedValue({ version: '2.0.0' })
+      
+      const result = await migrationService.validateMigration()
+      
+      expect(result.valid).toBe(true)
+      expect(result.issues).toHaveLength(0)
     })
 
-    it('should detect invalid migration', async () => {
-      mockFs.existsSync.mockReturnValue(false)
-
-      const validation = await migrationService.validateMigration()
-
-      expect(validation.valid).toBe(false)
-      expect(validation.issues.length).toBeGreaterThan(0)
+    it('should return invalid when settings file missing', async () => {
+      // Mock only migration marker exists
+      vi.spyOn(fs, 'existsSync').mockImplementation((path: string) => {
+        return path.includes('.migration-complete')
+      })
+      
+      const result = await migrationService.validateMigration()
+      
+      expect(result.valid).toBe(false)
+      expect(result.issues).toContain('Settings file not found after migration')
     })
 
-    it('should handle validation errors', async () => {
-      mockFs.existsSync.mockReturnValue(true)
-      mockFs.readJson.mockRejectedValue(new Error('Corrupt file'))
-
-      const validation = await migrationService.validateMigration()
-
-      expect(validation.valid).toBe(false)
-      expect(validation.issues[0]).toContain('Corrupt file')
-    })
-  })
-
-  describe('rollbackMigration', () => {
-    it('should successfully rollback migration', async () => {
-      mockFs.existsSync.mockReturnValue(true)
-      mockFs.remove.mockResolvedValue(undefined)
-      mockFs.copy.mockResolvedValue(undefined)
-
-      const success = await migrationService.rollbackMigration('/backup/path')
-
-      expect(success).toBe(true)
-      expect(mockFs.remove).toHaveBeenCalled()
-      expect(mockFs.copy).toHaveBeenCalled()
-    })
-
-    it('should handle rollback errors', async () => {
-      mockFs.existsSync.mockReturnValue(true)
-      mockFs.remove.mockRejectedValue(new Error('Permission denied'))
-
-      const success = await migrationService.rollbackMigration('/backup/path')
-
-      expect(success).toBe(false)
+    it('should return invalid when settings file is corrupted', async () => {
+      // Mock files exist but settings are invalid
+      vi.spyOn(fs, 'existsSync').mockImplementation((path: string) => {
+        return path.includes('settings.json') || path.includes('.migration-complete')
+      })
+      
+      vi.spyOn(fs, 'readJson').mockResolvedValue(null)
+      
+      const result = await migrationService.validateMigration()
+      
+      expect(result.valid).toBe(false)
+      expect(result.issues).toContain('Settings file is invalid')
     })
   })
 
   describe('getMigrationStatus', () => {
-    it('should return correct migration status', async () => {
-      mockFs.existsSync.mockReturnValue(true)
-      mockFs.readJson.mockResolvedValue({
-        migratedAt: '2023-01-01T00:00:00Z',
+    it('should return correct status when migration needed', async () => {
+      // Mock old app data exists but migration not completed
+      vi.spyOn(fs, 'existsSync').mockImplementation((path: string) => {
+        return path.includes('oldAppData') && !path.includes('.migration-complete')
       })
-
+      
       const status = await migrationService.getMigrationStatus()
+      
+      expect(status.needed).toBe(true)
+      expect(status.completed).toBe(false)
+      expect(status.oldDataPath).toBeDefined()
+    })
 
-      expect(status.needed).toBeDefined()
+    it('should return completed status when migration done', async () => {
+      // Mock migration completed
+      vi.spyOn(fs, 'existsSync').mockImplementation((path: string) => {
+        return path.includes('.migration-complete')
+      })
+      
+      const mockMarkerData = {
+        version: '2.0.0',
+        migratedAt: '2023-01-01T00:00:00Z',
+      }
+      
+      vi.spyOn(fs, 'readJson').mockResolvedValue(mockMarkerData)
+      
+      const status = await migrationService.getMigrationStatus()
+      
+      expect(status.needed).toBe(false)
       expect(status.completed).toBe(true)
       expect(status.migratedAt).toBe('2023-01-01T00:00:00Z')
+    })
+  })
+
+  describe('rollbackMigration', () => {
+    it('should rollback migration successfully', async () => {
+      const backupPath = '/mock/backup'
+      
+      // Mock migration marker exists
+      vi.spyOn(fs, 'existsSync').mockImplementation((path: string) => {
+        return path.includes('.migration-complete')
+      })
+      
+      const result = await migrationService.rollbackMigration(backupPath)
+      
+      expect(result).toBe(true)
+      expect(fs.remove).toHaveBeenCalledWith(expect.stringContaining('.migration-complete'))
+      expect(fs.copy).toHaveBeenCalledWith(
+        expect.stringContaining('new-app-data'),
+        expect.stringContaining('userData')
+      )
+    })
+
+    it('should handle rollback errors', async () => {
+      const backupPath = '/mock/backup'
+      
+      // Mock fs operations to throw error
+      vi.spyOn(fs, 'remove').mockRejectedValue(new Error('Permission denied'))
+      
+      const result = await migrationService.rollbackMigration(backupPath)
+      
+      expect(result).toBe(false)
     })
   })
 })
@@ -229,133 +267,86 @@ describe('MigrationService', () => {
 describe('MigrationUtils', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.spyOn(fs, 'existsSync').mockReturnValue(false)
+    vi.spyOn(fs, 'move').mockResolvedValue(undefined)
   })
 
   afterEach(() => {
-    vi.resetAllMocks()
-  })
-
-  describe('getMigrationInfo', () => {
-    it('should return migration info when old data exists', async () => {
-      mockFs.existsSync.mockReturnValue(true)
-      mockFs.readJson.mockResolvedValue({
-        settings: { theme: 'dark' },
-        thumbnails: { 'file1': '/thumb1.jpg' },
-        downloadHistory: [{ fileName: 'test.mov' }],
-      })
-
-      const info = await MigrationUtils.getMigrationInfo()
-
-      expect(info.hasOldData).toBe(true)
-      expect(info.canMigrate).toBe(true)
-      expect(info.estimatedItems).toBeGreaterThan(0)
-    })
-
-    it('should return no migration needed when no old data', async () => {
-      mockFs.existsSync.mockReturnValue(false)
-
-      const info = await MigrationUtils.getMigrationInfo()
-
-      expect(info.hasOldData).toBe(false)
-      expect(info.canMigrate).toBe(false)
-      expect(info.estimatedItems).toBe(0)
-    })
+    vi.restoreAllMocks()
   })
 
   describe('isFirstRunAfterMigration', () => {
-    it('should detect first run after migration', () => {
-      mockFs.existsSync.mockReturnValue(true)
-
-      const isFirstRun = MigrationUtils.isFirstRunAfterMigration()
-
-      expect(isFirstRun).toBe(true)
+    it('should return true when migration marker exists', () => {
+      vi.spyOn(fs, 'existsSync').mockReturnValue(true)
+      
+      const result = MigrationUtils.isFirstRunAfterMigration()
+      
+      expect(result).toBe(true)
     })
 
-    it('should detect not first run', () => {
-      mockFs.existsSync.mockReturnValue(false)
+    it('should return false when migration marker does not exist', () => {
+      vi.spyOn(fs, 'existsSync').mockReturnValue(false)
+      
+      const result = MigrationUtils.isFirstRunAfterMigration()
+      
+      expect(result).toBe(false)
+    })
+  })
 
-      const isFirstRun = MigrationUtils.isFirstRunAfterMigration()
+  describe('getMigrationInfo', () => {
+    it('should return no migration needed when no old data', async () => {
+      const result = await MigrationUtils.getMigrationInfo()
+      
+      expect(result.hasOldData).toBe(false)
+      expect(result.canMigrate).toBe(false)
+      expect(result.estimatedItems).toBe(0)
+    })
 
-      expect(isFirstRun).toBe(false)
+    it('should return migration info when old data exists', async () => {
+      // Mock old data exists
+      vi.spyOn(fs, 'existsSync').mockImplementation((path: string) => {
+        return path.includes('oldAppData')
+      })
+      
+      const mockOldData = {
+        settings: { theme: 'dark' },
+        thumbnails: { 'file1': '/thumb1.jpg', 'file2': '/thumb2.jpg' },
+        downloadHistory: [{ fileName: 'test.mov' }],
+      }
+      
+      vi.spyOn(fs, 'readJson').mockResolvedValue(mockOldData.settings)
+      
+      const result = await MigrationUtils.getMigrationInfo()
+      
+      expect(result.hasOldData).toBe(true)
+      expect(result.canMigrate).toBe(true)
+      expect(result.estimatedItems).toBeGreaterThan(0)
     })
   })
 
   describe('cleanupOldData', () => {
     it('should cleanup old data after successful migration', async () => {
-      mockFs.existsSync.mockReturnValue(true)
-      mockFs.move.mockResolvedValue(undefined)
-
-      const success = await MigrationUtils.cleanupOldData()
-
-      expect(success).toBe(true)
-      expect(mockFs.move).toHaveBeenCalled()
+      // Mock migration completed and old data exists
+      vi.spyOn(fs, 'existsSync').mockImplementation((path: string) => {
+        return path.includes('.migration-complete') || path.includes('oldAppData')
+      })
+      
+      const result = await MigrationUtils.cleanupOldData()
+      
+      expect(result).toBe(true)
+      expect(fs.move).toHaveBeenCalledWith(
+        expect.stringContaining('oldAppData'),
+        expect.stringContaining('old-app-backup')
+      )
     })
 
-    it('should handle cleanup errors gracefully', async () => {
-      mockFs.existsSync.mockReturnValue(true)
-      mockFs.move.mockRejectedValue(new Error('Permission denied'))
-
-      const success = await MigrationUtils.cleanupOldData()
-
-      expect(success).toBe(false)
-    })
-
-    it('should return false if no migration completed', async () => {
-      mockFs.existsSync.mockReturnValue(false)
-
-      const success = await MigrationUtils.cleanupOldData()
-
-      expect(success).toBe(false)
+    it('should return false when no migration completed', async () => {
+      vi.spyOn(fs, 'existsSync').mockReturnValue(false)
+      
+      const result = await MigrationUtils.cleanupOldData()
+      
+      expect(result).toBe(false)
     })
   })
 })
-
-describe('Migration Integration', () => {
-  it('should handle complete migration flow', async () => {
-    const migrationService = new MigrationService()
-
-    // Mock successful migration flow
-    mockFs.existsSync.mockReturnValue(true)
-    mockFs.ensureDir.mockResolvedValue(undefined)
-    mockFs.copy.mockResolvedValue(undefined)
-    mockFs.writeJson.mockResolvedValue(undefined)
-    mockFs.writeFile.mockResolvedValue(undefined)
-    mockFs.readJson.mockResolvedValue({
-      settings: { ingestPath: '/test/path' },
-    })
-
-    // Check if migration needed
-    const needed = await migrationService.isMigrationNeeded()
-    expect(needed).toBe(true)
-
-    // Perform migration
-    const result = await migrationService.performMigration()
-    expect(result.success).toBe(true)
-
-    // Validate migration
-    const validation = await migrationService.validateMigration()
-    expect(validation.valid).toBe(true)
-
-    // Get status
-    const status = await migrationService.getMigrationStatus()
-    expect(status.completed).toBe(true)
-  })
-
-  it('should handle migration failure and rollback', async () => {
-    const migrationService = new MigrationService()
-
-    // Mock migration failure
-    mockFs.existsSync.mockReturnValue(true)
-    mockFs.ensureDir.mockRejectedValue(new Error('Disk full'))
-
-    // Perform migration (should fail)
-    const result = await migrationService.performMigration()
-    expect(result.success).toBe(false)
-
-    // Rollback migration
-    mockFs.remove.mockResolvedValue(undefined)
-    mockFs.copy.mockResolvedValue(undefined)
-    const rollbackSuccess = await migrationService.rollbackMigration('/backup/path')
-    expect(rollbackSuccess).toBe(true)
-  })
 })

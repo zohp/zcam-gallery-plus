@@ -302,3 +302,4 @@ export const MigrationWizard: React.FC<MigrationWizardProps> = ({
     </div>
   )
 }
+

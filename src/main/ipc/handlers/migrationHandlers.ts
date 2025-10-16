@@ -150,3 +150,4 @@ export function cleanupMigrationHandlers(): void {
 
   console.log('Migration IPC handlers cleaned up successfully')
 }
+

@@ -172,3 +172,4 @@ export const MigrationGate: React.FC<MigrationGateProps> = ({ children }) => {
   // Show the main app (migration skipped or not needed)
   return <>{children}</>
 }
+
